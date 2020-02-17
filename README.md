@@ -1,4 +1,4 @@
 # github-crawler-core
 
-API授权部分现在更新了，应该用不了。
-其他部分倒是可以看看
+根据 Doc，https://developer.github.com/v3/auth/
+API授权已更新

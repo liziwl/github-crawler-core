@@ -8,12 +8,15 @@ import json
 import os
 import inspect
 import pprint
-from datetime import datetime
+from datetime import datetime, timezone
+import pytz
 import core_util
 import logging
+import persontoken
 
 REQ_TIMEOUT = 6
 REQ_SLEEP = 0.5
+LOCAL_TZ = 'Asia/Shanghai'
 
 requests.adapters.DEFAULT_RETRIES = 5
 
@@ -36,6 +39,11 @@ SIMPLE_HEADER = {
     'User-Agent': 'Mozilla/5.0 ven(Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                   'Chrome/69.0.3497.100 Safari/537.36'
 }
+
+
+def get_gh_header(token=persontoken.MY_TOKEN):
+    SP_GITHUB_HEADER['Authorization'] = f'token {token}'
+    return SP_GITHUB_HEADER
 
 
 def std_table_name(repo_url, separation):
@@ -189,9 +197,16 @@ def parse_json(url, debug=False):
     logger.info(f"Start parsing: {url}")
     time.sleep(REQ_SLEEP)
     if "github.com" in url:
-        json_str = requests.get(url, headers=SP_GITHUB_HEADER, timeout=REQ_TIMEOUT).text
+        res = requests.get(url, headers=get_gh_header(), timeout=REQ_TIMEOUT)
+        json_str = res.text
+        this_head = res.headers
+        ts = int(this_head['X-RateLimit-Reset'])
+        utc_tc = datetime.utcfromtimestamp(ts).replace(tzinfo=timezone.utc)
+        logger.info(f"RateLimit-Limit {this_head['X-RateLimit-Remaining']}/{this_head['X-RateLimit-Limit']}. Reset at TZ@{LOCAL_TZ} " +
+                    utc_tc.astimezone(pytz.timezone(LOCAL_TZ)).strftime('%Y-%m-%d %H:%M:%S')+".")
     else:
-        json_str = requests.get(url, headers=SIMPLE_HEADER, timeout=REQ_TIMEOUT).text
+        res = requests.get(url, headers=SIMPLE_HEADER, timeout=REQ_TIMEOUT)
+        json_str = res.text
     json_data = json.loads(json_str)
     if debug:
         logger.debug(json.dumps(json_data, indent=4))
@@ -303,4 +318,5 @@ if __name__ == '__main__':
     #      [1, 2, 3, 45, 6, 6, 7], ]
     # print(get_col(a, [1, 2]))
     # print(get_col(a, [1]))
-    print(std_table_name('https://github.com/k0shk0sh/FastHub', '$'))
+    # print(std_table_name('https://github.com/k0shk0sh/FastHub', '$'))
+    print(parse_json('https://api.github.com/users/liziwl'))
